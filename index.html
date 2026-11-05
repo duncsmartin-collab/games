@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14213D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Game Box</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@500;700&display=swap">
+<style>
+/* One shelf of big tappable game boxes on a studded baseplate. */
+:root{
+  --plate:#14213D; --stud:rgba(255,255,255,.045); --card:#1E2F55; --card-hi:#263A66;
+  --paper:#FFFDF6; --muted:#B8C4DC; --taxi:#F2C230; --taxi-deep:#C9961A;
+  --display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
+  --body:"Rubik",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background-color:var(--plate);background-image:radial-gradient(circle at 50% 50%,var(--stud) 0 9px,transparent 10px);background-size:32px 32px;color:var(--paper);font-family:var(--body);-webkit-tap-highlight-color:transparent}
+main{max-width:1100px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+h1{margin:0;font-family:var(--display);font-weight:400;font-size:clamp(38px,7vw,64px);line-height:.95;color:var(--taxi);text-shadow:0 3px 0 var(--taxi-deep),0 6px 0 #0B1428}
+header p{margin:0 0 6px;font-size:15px;color:var(--muted)}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:18px}
+.game{display:flex;flex-direction:column;border-radius:20px;background:var(--card);overflow:hidden;color:inherit;text-decoration:none;box-shadow:0 6px 0 #0B1428,0 14px 28px rgba(0,0,0,.3);transition:transform .12s,box-shadow .12s}
+.game:active{transform:translateY(4px);box-shadow:0 2px 0 #0B1428,0 8px 18px rgba(0,0,0,.3)}
+.game:focus-visible{outline:4px solid var(--taxi);outline-offset:4px}
+.cover{position:relative;aspect-ratio:16/9;max-width:100%;background:#2A3C66 center/cover no-repeat}
+.cover::after{content:"";position:absolute;inset:auto 0 0;height:40%;background:linear-gradient(transparent,rgba(30,47,85,.95))}
+.info{display:flex;flex-direction:column;gap:6px;padding:4px 16px 16px;margin-top:-26px;position:relative;z-index:1}
+.info h2{margin:0;font-family:var(--display);font-weight:400;font-size:28px;line-height:1}
+.info p{margin:0;font-size:14px;line-height:1.4;color:var(--muted)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tags span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.08);color:var(--muted)}
+.play{flex:none;font-family:var(--display);font-size:20px;color:#14213D;background:var(--taxi);padding:8px 18px 10px;border-radius:12px;box-shadow:inset 0 -5px 0 var(--taxi-deep)}
+.soon{display:grid;place-items:center;min-height:220px;border-radius:20px;border:3px dashed rgba(255,255,255,.18);text-align:center;padding:20px;color:var(--muted)}
+.soon b{display:block;font-family:var(--display);font-weight:400;font-size:24px;color:var(--paper);margin-bottom:4px}
+footer{font-size:12.5px;color:var(--muted);line-height:1.5;max-width:60ch}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Game Box</h1>
+    <p>Pick a game. Your progress saves on this tablet.</p>
+  </header>
+  <section class="shelf" aria-label="Games">
+    <a class="game" href="brickton/">
+      <div class="cover" style="background-image:url('brickton/cover.jpg')" role="img" aria-label="A yellow brick taxi driving through a toy town"></div>
+      <div class="info">
+        <h2>Brickton Cabs</h2>
+        <p>Drive a brick-built taxi, bus, ice cream van or pizza scooter round a toy town.</p>
+        <div class="row"><div class="tags"><span>Driving</span><span>Jobs</span><span>Garage</span></div><span class="play">Play</span></div>
+      </div>
+    </a>
+    <div class="soon"><div><b>More games soon</b>New games will appear here on their own.</div></div>
+  </section>
+  <footer>Add this page to the home screen once (browser menu › Add to Home Screen) and every game is one tap away, even without internet after the first visit.</footer>
+</main>
+<script>if('serviceWorker' in navigator&&location.protocol==='https:'){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
