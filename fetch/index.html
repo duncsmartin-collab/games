@@ -86,7 +86,7 @@ body[data-skin="arcade"] .letters div.hit,body[data-skin="haunted"] .letters div
 .letters div.anchor{outline:2px dashed var(--accent);outline-offset:-3px;border-radius:var(--radius)}
 .letters div.sniff{animation:sniff .5s ease-in-out 5}
 @keyframes sniff{0%,100%{transform:scale(1)}50%{transform:scale(1.45) rotate(-8deg);color:var(--accent)}}
-.letters div.myst{animation:myst .5s ease-out both;color:var(--accent);text-shadow:0 0 10px var(--accent)}
+.letters div.myst{animation:myst .5s ease-out both;color:var(--accent);background:var(--panel);border-radius:50%;box-shadow:0 0 0 2px var(--accent),0 0 14px var(--accent);text-shadow:none;position:relative;z-index:2}
 @keyframes myst{0%{transform:scale(.4)}60%{transform:scale(1.5)}100%{transform:scale(1.15)}}
 
 .cap{position:absolute;border-radius:999px;background:var(--cf);transition:opacity .2s}
@@ -107,8 +107,23 @@ body[data-skin="brass"] .cap{background:linear-gradient(180deg,#f8dc8a,#c9952e);
 .words li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--panelLine)}
 .words li.found{text-decoration:line-through;color:var(--muted)}
 .words li.found::before{background:var(--c)}
-.myst-line{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--muted);flex-wrap:wrap}
-.myst-line b{color:var(--ink);letter-spacing:.3em;font-family:var(--letter);font-weight:400;font-size:13px}
+.mystBox{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;border:2px dashed var(--panelLine);border-radius:14px;padding:12px}
+.mystBox.live{border-style:solid;border-color:var(--accent);box-shadow:0 0 0 3px var(--panel),0 0 18px var(--accent)}
+.mystBox.solved{border-style:solid;border-color:var(--good)}
+.mystTop{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-weight:700;line-height:1.35}
+.mystLabel{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.slots{display:flex;gap:5px;flex-wrap:wrap}
+.slots button{width:38px;height:44px;border:2px solid var(--panelLine);border-radius:8px;background:var(--tile);font-family:var(--letter);font-size:18px;color:var(--letterInk);display:grid;place-items:center;padding:0}
+.slots button.f{border-color:var(--accent)}
+.slots.ok button{background:var(--good);border-color:var(--good);color:#fff;animation:pip .3s both}
+.slots.bad{animation:wrong .4s}
+.mTiles{display:flex;gap:6px;flex-wrap:wrap}
+.mTiles button{width:44px;height:48px;border:0;border-radius:9px;background:var(--accent);color:var(--accentInk);font-family:var(--letter);font-size:20px;display:grid;place-items:center;padding:0;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.mTiles button:disabled{opacity:.2;box-shadow:none}
+.mystGuess{display:flex;gap:8px}
+.mystGuess input{flex:1;min-width:0;font:700 16px var(--ui);text-transform:uppercase;letter-spacing:.12em;padding:10px 12px;border-radius:10px;border:1px solid var(--panelLine);background:var(--bg);color:var(--ink)}
+.mystFoot{justify-content:space-between;flex-wrap:nowrap}.mystFoot .note{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
 .buster{display:flex;gap:10px;align-items:center}
 .buster button{border:0;background:none;padding:0;width:74px;height:74px;flex:none}
@@ -364,7 +379,13 @@ svg.bst{overflow:visible}
         <div class="finish" id="finish" hidden></div>
       </div>
       <ul class="words" id="words"></ul>
-      <div class="myst-line">Mystery word: <span id="clue"></span> <b id="mystSlots"></b></div>
+      <div class="mystBox" id="mystBox">
+        <div class="mystTop"><span class="mystLabel">Mystery word</span><span id="clue"></span></div>
+        <div class="slots" id="mystSlots" aria-label="Mystery word letters"></div>
+        <div class="mTiles" id="mystTiles" hidden></div>
+        <form class="mystGuess" id="mystForm" autocomplete="off"><label class="sr" for="mystIn">Your guess</label><input id="mystIn" maxlength="12" autocapitalize="characters" spellcheck="false" placeholder="Type your guess"><button class="btn" type="submit">Guess</button></form>
+        <div class="row mystFoot"><p class="note" id="mystMsg" aria-live="polite">Guess before you've found every word for a big bonus.</p><button class="back" id="mystGive" type="button" hidden>Give up</button></div>
+      </div>
       <div class="buster">
         <button class="busterBtn" aria-label="Ask Buster for a hint"></button>
         <div class="bubble">Stuck? Tap me and I'll sniff out a letter.</div>
@@ -914,12 +935,13 @@ function makePuzzle(topicKey, dirMode) {
     if (free.length < mw.length + 4) continue;
     const pickIdx = shuffle(free.map((_, i) => i)).slice(0, mw.length).sort((a, b) => a - b);
     const mcells = pickIdx.map(i => free[i]);
-    mcells.forEach(([r, c], i) => (grid[r][c] = mw[i]));
+    let mix = mw.split(''); for (let t = 0; t < 12 && mix.join('') === mw; t++) mix = shuffle(mix);
+    mcells.forEach(([r, c], i) => (grid[r][c] = mix[i]));
     const filler = new Set();
     free.forEach(([r, c]) => { if (!grid[r][c]) { grid[r][c] = FREQ[rand(FREQ.length)]; filler.add(r * N + c); } });
     cleanRude(grid, filler, N);
     placed.sort((a, b) => a.w.localeCompare(b.w));
-    return { N, grid, words: placed, mystery: { word: mw, clue, cells: mcells } };
+    return { N, grid, words: placed, mystery: { word: mw, clue, cells: mcells, mix, solved: false, early: false, gaveUp: false } };
   }
   return null;
 }
@@ -942,7 +964,7 @@ function newPuzzle() {
   }
   $('#words').innerHTML = PZ.words.map((w, i) => `<li data-i="${i}">${w.w}</li>`).join('');
   $('#clue').textContent = PZ.mystery.clue;
-  $('#mystSlots').textContent = PZ.mystery.word.replace(/./g, '_');
+  mystReset();
   $('#topicName').textContent = TOPICS[P().topic].name;
   $('#finish').hidden = true;
   t0 = performance.now(); tEnd = 0; hints = 0; bonusPts = 0; bonusHad = false; done = false; colorIdx = rand(8); anchor = null;
@@ -1023,7 +1045,7 @@ function finish(ends) {
   const li = document.querySelector(`#words li[data-i="${PZ.words.indexOf(hit)}"]`); li.classList.add('found'); li.style.setProperty('--c', hit.cap.color);
   if (P().sfx) Music.sfx('found');
   const left = PZ.words.filter(w => !w.found).length;
-  if (left === 0) return complete();
+  if (left === 0) return PZ.mystery.solved ? complete() : mystFinal();
   if ((!bonusHad && left <= 2) || Math.random() < .2) busterBonus();
   else if (Math.random() < .35) say(pick(['Good find!', 'Woof! Nice one.', `${left} to go. I believe in you.`, 'That one smelled tricky.']));
   hud();
@@ -1050,7 +1072,7 @@ document.querySelector('#wordsearch .busterBtn').addEventListener('click', () =>
   hud();
 });
 
-function score() { return PZ.words.filter(w => w.found).length * 100 + bonusPts - hints * 25; }
+function score() { const M = PZ.mystery; return PZ.words.filter(w => w.found).length * 100 + bonusPts - hints * 25 + (M.early ? 150 : M.solved && !M.gaveUp ? 50 : 0); }
 function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function hud() {
   $('#found').textContent = PZ.words.filter(w => w.found).length + '/' + PZ.words.length;
@@ -1063,19 +1085,16 @@ function complete() {
   done = true; tEnd = performance.now(); hud();
   if (P().sfx) Music.sfx('done');
   const M = PZ.mystery;
-  M.cells.forEach(([r, c], i) => setTimeout(() => {
-    letterEls[r * PZ.N + c].classList.add('myst');
-    $('#mystSlots').textContent = M.word.slice(0, i + 1) + M.word.slice(i + 1).replace(/./g, '_');
-  }, 300 + i * 220));
+  M.cells.forEach(([r, c]) => letterEls[r * PZ.N + c].classList.add('myst'));
   const secs = (tEnd - t0) / 1000, stars = hints === 0 ? 3 : hints <= 2 ? 2 : 1;
   const medal = !P().timer ? '' : secs < 90 ? 'Gold — under 1:30' : secs < 150 ? 'Silver — under 2:30' : 'Bronze — finished';
-  const earn = award({ kind: 'ws', stars, medal: !P().timer ? 0 : secs < 90 ? 1 : secs < 150 ? 2 : 3, clean: hints === 0 });
+  const earn = award({ kind: 'ws', stars, medal: !P().timer ? 0 : secs < 90 ? 1 : secs < 150 ? 2 : 3, clean: hints === 0, extra: M.early ? 10 : M.gaveUp ? 0 : 4, myst: M.early });
   const key = 'best.' + who + '.' + P().topic, best = store.get(key, null), isBest = P().timer && (!best || secs < best);
   if (isBest) store.set(key, secs);
   setTimeout(() => {
     const f = $('#finish');
     f.innerHTML = `<div><h3>All found!</h3>
-      <p>The leftover letters spell</p><div class="mw">${M.word}</div>
+      <p>${M.early ? 'You cracked the mystery word early!' : M.gaveUp ? 'The mystery word was' : 'You unscrambled the mystery word'}</p><div class="mw">${M.word}</div>
       <p>${M.clue}</p>
       <div class="medal">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}${P().timer ? ` · ${fmt(tEnd - t0)}` : ''}</div>
       ${medal ? `<p class="medal">${medal}${isBest ? ' · new best!' : ''}</p>` : ''}
@@ -1084,8 +1103,71 @@ function complete() {
     f.hidden = false;
     $('#again').onclick = newPuzzle; $('#look').onclick = () => (f.hidden = true);
     say('Walkies? No? Fine. Another puzzle then.');
-  }, 400 + M.cells.length * 220);
+  }, 700);
 }
+
+// ---------- mystery word ----------
+let mystPick = [];
+function mystSlots(letters, cls) {
+  const M = PZ.mystery, el = $('#mystSlots');
+  el.className = 'slots' + (cls ? ' ' + cls : '');
+  el.innerHTML = M.word.split('').map((_, i) => `<button type="button" data-i="${i}" class="${letters[i] ? 'f' : ''}" aria-label="Letter ${i + 1}">${letters[i] || ''}</button>`).join('');
+}
+function mystMsg(t) { $('#mystMsg').textContent = t; }
+function mystReset() {
+  mystPick = []; $('#mystBox').className = 'mystBox'; $('#mystTiles').hidden = true; $('#mystForm').hidden = false; $('#mystGive').hidden = true;
+  $('#mystIn').value = ''; mystSlots([]); mystMsg(`${PZ.mystery.word.length} letters. Guess before you've found every word for a big bonus.`);
+}
+function mystFinal() {
+  const M = PZ.mystery; hud();
+  M.cells.forEach(([r, c]) => letterEls[r * PZ.N + c].classList.add('myst'));
+  $('#mystBox').className = 'mystBox live'; $('#mystGive').hidden = false; $('#mystTiles').hidden = false;
+  $('#mystTiles').innerHTML = M.mix.map((ch, i) => `<button type="button" data-t="${i}">${ch}</button>`).join('');
+  mystPick = []; mystSlots([]);
+  mystMsg('All words found! The glowing letters are the mystery word, scrambled. Tap them in the right order.');
+  say('The glowing letters! Unscramble them. Use the clue.');
+  $('#mystBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function mystSolved(early, gaveUp) {
+  const M = PZ.mystery; M.solved = true; M.early = early; M.gaveUp = !!gaveUp;
+  $('#mystBox').className = 'mystBox solved'; $('#mystForm').hidden = true; $('#mystTiles').hidden = true; $('#mystGive').hidden = true;
+  mystSlots(M.word.split(''), gaveUp ? '' : 'ok');
+  if (gaveUp) { mystMsg('No bonus this time. Next one!'); }
+  else if (early) {
+    mystMsg('Cracked it early! +150 points. Now find the rest of the words.');
+    if (P().sfx) { Music.sfx('bonus'); setTimeout(() => Music.sfx('bark'), 300); }
+    say('Woof! You worked out the mystery word already!');
+  } else mystMsg('Unscrambled! +50 points.');
+  hud();
+  if (PZ.words.every(w => w.found)) complete();
+}
+function mystTry(guess) {
+  const M = PZ.mystery; guess = guess.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!guess || M.solved || done) return;
+  if (guess === M.word) return mystSolved(!PZ.words.every(w => w.found));
+  const el = $('#mystSlots'); el.classList.remove('bad'); void el.offsetWidth; el.classList.add('bad');
+  if (P().sfx) Music.sfx('miss');
+  mystMsg(guess.length !== M.word.length ? `It has ${M.word.length} letters. Try again.` : `Not ${guess}. Try again.`);
+}
+$('#mystForm').addEventListener('submit', e => { e.preventDefault(); Music.unlock(); mystTry($('#mystIn').value); $('#mystIn').value = ''; });
+$('#mystTiles').addEventListener('click', e => {
+  const b = e.target.closest('button[data-t]'); if (!b || b.disabled) return;
+  const M = PZ.mystery; mystPick.push(+b.dataset.t); b.disabled = true; if (P().sfx) Music.sfx('tap');
+  mystSlots(mystPick.map(i => M.mix[i]));
+  if (mystPick.length === M.word.length) {
+    const g = mystPick.map(i => M.mix[i]).join('');
+    if (g === M.word) return mystSolved(false);
+    mystTry(g);
+    setTimeout(() => { mystPick = []; document.querySelectorAll('#mystTiles button').forEach(t => (t.disabled = false)); mystSlots([]); }, 450);
+  }
+});
+$('#mystSlots').addEventListener('click', e => {
+  const b = e.target.closest('button[data-i]'); if (!b || $('#mystTiles').hidden) return;
+  const i = +b.dataset.i; if (i >= mystPick.length) return;
+  mystPick.splice(i).forEach(t => (document.querySelector(`#mystTiles button[data-t="${t}"]`).disabled = false));
+  mystSlots(mystPick.map(k => PZ.mystery.mix[k]));
+});
+$('#mystGive').onclick = () => { if (!PZ.mystery.solved) mystSolved(false, true); };
 
 // ---------- customiser ----------
 function applySkin() {
@@ -1305,6 +1387,7 @@ const BADGES = [
   ['clean', 'No Sniffing', 'Finish a puzzle with no hints', s => s.n.clean >= 1],
   ['gold', 'Speedy Paws', 'Win a gold medal in timed mode', s => s.n.gold >= 1],
   ['three', 'Mind Reader', 'Solve a Word Guess in 3 tries or fewer', s => s.n.wg3 >= 1],
+  ['myst', 'Sharp Sniffer', 'Crack a mystery word before finding every word', s => s.n.myst >= 1],
   ['streak5', 'On a Roll', 'Get a Word Guess streak of 5', s => s.best >= 5],
   ['bonus10', 'Bonus Hunter', 'Catch 10 Buster Bonuses', s => s.n.bonus >= 10],
   ['packs', 'Explorer', 'Finish a puzzle in every word pack', s => s.packs.length >= 8],
@@ -1314,7 +1397,7 @@ const BADGES = [
 ];
 
 const STATS = {};
-function blankStats() { return { bones: 0, life: 0, owned: [], eq: { hat: '', face: '', neck: '', coat: '' }, badges: [], n: { ws: 0, wgw: 0, cw: 0, clean: 0, gold: 0, wg3: 0, bonus: 0 }, packs: [], best: 0 }; }
+function blankStats() { return { bones: 0, life: 0, owned: [], eq: { hat: '', face: '', neck: '', coat: '' }, badges: [], n: { ws: 0, wgw: 0, cw: 0, clean: 0, gold: 0, wg3: 0, bonus: 0, myst: 0 }, packs: [], best: 0 }; }
 function S() {
   if (!STATS[who]) {
     const d = blankStats(), v = store.get('stats.' + who, {}) || {};
@@ -1399,6 +1482,8 @@ function award(o) {
   if (o.streak != null) s.best = Math.max(s.best, o.streak);
   if (o.medal) { b += [0, 6, 3, 1][o.medal]; if (o.medal === 1) s.n.gold++; }
   if (o.clean) s.n.clean++;
+  if (o.myst) s.n.myst++;
+  b += o.extra || 0;
   if (o.kind !== 'wgl' && !s.packs.includes(P().topic)) s.packs.push(P().topic);
   give(b); checkBadges(); saveS(); updateBones();
   return `<p class="earn">${BONE}<b>+${b} bones</b></p>`;

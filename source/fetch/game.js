@@ -137,12 +137,13 @@ function makePuzzle(topicKey, dirMode) {
     if (free.length < mw.length + 4) continue;
     const pickIdx = shuffle(free.map((_, i) => i)).slice(0, mw.length).sort((a, b) => a - b);
     const mcells = pickIdx.map(i => free[i]);
-    mcells.forEach(([r, c], i) => (grid[r][c] = mw[i]));
+    let mix = mw.split(''); for (let t = 0; t < 12 && mix.join('') === mw; t++) mix = shuffle(mix);
+    mcells.forEach(([r, c], i) => (grid[r][c] = mix[i]));
     const filler = new Set();
     free.forEach(([r, c]) => { if (!grid[r][c]) { grid[r][c] = FREQ[rand(FREQ.length)]; filler.add(r * N + c); } });
     cleanRude(grid, filler, N);
     placed.sort((a, b) => a.w.localeCompare(b.w));
-    return { N, grid, words: placed, mystery: { word: mw, clue, cells: mcells } };
+    return { N, grid, words: placed, mystery: { word: mw, clue, cells: mcells, mix, solved: false, early: false, gaveUp: false } };
   }
   return null;
 }
@@ -165,7 +166,7 @@ function newPuzzle() {
   }
   $('#words').innerHTML = PZ.words.map((w, i) => `<li data-i="${i}">${w.w}</li>`).join('');
   $('#clue').textContent = PZ.mystery.clue;
-  $('#mystSlots').textContent = PZ.mystery.word.replace(/./g, '_');
+  mystReset();
   $('#topicName').textContent = TOPICS[P().topic].name;
   $('#finish').hidden = true;
   t0 = performance.now(); tEnd = 0; hints = 0; bonusPts = 0; bonusHad = false; done = false; colorIdx = rand(8); anchor = null;
@@ -246,7 +247,7 @@ function finish(ends) {
   const li = document.querySelector(`#words li[data-i="${PZ.words.indexOf(hit)}"]`); li.classList.add('found'); li.style.setProperty('--c', hit.cap.color);
   if (P().sfx) Music.sfx('found');
   const left = PZ.words.filter(w => !w.found).length;
-  if (left === 0) return complete();
+  if (left === 0) return PZ.mystery.solved ? complete() : mystFinal();
   if ((!bonusHad && left <= 2) || Math.random() < .2) busterBonus();
   else if (Math.random() < .35) say(pick(['Good find!', 'Woof! Nice one.', `${left} to go. I believe in you.`, 'That one smelled tricky.']));
   hud();
@@ -273,7 +274,7 @@ document.querySelector('#wordsearch .busterBtn').addEventListener('click', () =>
   hud();
 });
 
-function score() { return PZ.words.filter(w => w.found).length * 100 + bonusPts - hints * 25; }
+function score() { const M = PZ.mystery; return PZ.words.filter(w => w.found).length * 100 + bonusPts - hints * 25 + (M.early ? 150 : M.solved && !M.gaveUp ? 50 : 0); }
 function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function hud() {
   $('#found').textContent = PZ.words.filter(w => w.found).length + '/' + PZ.words.length;
@@ -286,19 +287,16 @@ function complete() {
   done = true; tEnd = performance.now(); hud();
   if (P().sfx) Music.sfx('done');
   const M = PZ.mystery;
-  M.cells.forEach(([r, c], i) => setTimeout(() => {
-    letterEls[r * PZ.N + c].classList.add('myst');
-    $('#mystSlots').textContent = M.word.slice(0, i + 1) + M.word.slice(i + 1).replace(/./g, '_');
-  }, 300 + i * 220));
+  M.cells.forEach(([r, c]) => letterEls[r * PZ.N + c].classList.add('myst'));
   const secs = (tEnd - t0) / 1000, stars = hints === 0 ? 3 : hints <= 2 ? 2 : 1;
   const medal = !P().timer ? '' : secs < 90 ? 'Gold — under 1:30' : secs < 150 ? 'Silver — under 2:30' : 'Bronze — finished';
-  const earn = award({ kind: 'ws', stars, medal: !P().timer ? 0 : secs < 90 ? 1 : secs < 150 ? 2 : 3, clean: hints === 0 });
+  const earn = award({ kind: 'ws', stars, medal: !P().timer ? 0 : secs < 90 ? 1 : secs < 150 ? 2 : 3, clean: hints === 0, extra: M.early ? 10 : M.gaveUp ? 0 : 4, myst: M.early });
   const key = 'best.' + who + '.' + P().topic, best = store.get(key, null), isBest = P().timer && (!best || secs < best);
   if (isBest) store.set(key, secs);
   setTimeout(() => {
     const f = $('#finish');
     f.innerHTML = `<div><h3>All found!</h3>
-      <p>The leftover letters spell</p><div class="mw">${M.word}</div>
+      <p>${M.early ? 'You cracked the mystery word early!' : M.gaveUp ? 'The mystery word was' : 'You unscrambled the mystery word'}</p><div class="mw">${M.word}</div>
       <p>${M.clue}</p>
       <div class="medal">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}${P().timer ? ` · ${fmt(tEnd - t0)}` : ''}</div>
       ${medal ? `<p class="medal">${medal}${isBest ? ' · new best!' : ''}</p>` : ''}
@@ -307,8 +305,71 @@ function complete() {
     f.hidden = false;
     $('#again').onclick = newPuzzle; $('#look').onclick = () => (f.hidden = true);
     say('Walkies? No? Fine. Another puzzle then.');
-  }, 400 + M.cells.length * 220);
+  }, 700);
 }
+
+// ---------- mystery word ----------
+let mystPick = [];
+function mystSlots(letters, cls) {
+  const M = PZ.mystery, el = $('#mystSlots');
+  el.className = 'slots' + (cls ? ' ' + cls : '');
+  el.innerHTML = M.word.split('').map((_, i) => `<button type="button" data-i="${i}" class="${letters[i] ? 'f' : ''}" aria-label="Letter ${i + 1}">${letters[i] || ''}</button>`).join('');
+}
+function mystMsg(t) { $('#mystMsg').textContent = t; }
+function mystReset() {
+  mystPick = []; $('#mystBox').className = 'mystBox'; $('#mystTiles').hidden = true; $('#mystForm').hidden = false; $('#mystGive').hidden = true;
+  $('#mystIn').value = ''; mystSlots([]); mystMsg(`${PZ.mystery.word.length} letters. Guess before you've found every word for a big bonus.`);
+}
+function mystFinal() {
+  const M = PZ.mystery; hud();
+  M.cells.forEach(([r, c]) => letterEls[r * PZ.N + c].classList.add('myst'));
+  $('#mystBox').className = 'mystBox live'; $('#mystGive').hidden = false; $('#mystTiles').hidden = false;
+  $('#mystTiles').innerHTML = M.mix.map((ch, i) => `<button type="button" data-t="${i}">${ch}</button>`).join('');
+  mystPick = []; mystSlots([]);
+  mystMsg('All words found! The glowing letters are the mystery word, scrambled. Tap them in the right order.');
+  say('The glowing letters! Unscramble them. Use the clue.');
+  $('#mystBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function mystSolved(early, gaveUp) {
+  const M = PZ.mystery; M.solved = true; M.early = early; M.gaveUp = !!gaveUp;
+  $('#mystBox').className = 'mystBox solved'; $('#mystForm').hidden = true; $('#mystTiles').hidden = true; $('#mystGive').hidden = true;
+  mystSlots(M.word.split(''), gaveUp ? '' : 'ok');
+  if (gaveUp) { mystMsg('No bonus this time. Next one!'); }
+  else if (early) {
+    mystMsg('Cracked it early! +150 points. Now find the rest of the words.');
+    if (P().sfx) { Music.sfx('bonus'); setTimeout(() => Music.sfx('bark'), 300); }
+    say('Woof! You worked out the mystery word already!');
+  } else mystMsg('Unscrambled! +50 points.');
+  hud();
+  if (PZ.words.every(w => w.found)) complete();
+}
+function mystTry(guess) {
+  const M = PZ.mystery; guess = guess.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!guess || M.solved || done) return;
+  if (guess === M.word) return mystSolved(!PZ.words.every(w => w.found));
+  const el = $('#mystSlots'); el.classList.remove('bad'); void el.offsetWidth; el.classList.add('bad');
+  if (P().sfx) Music.sfx('miss');
+  mystMsg(guess.length !== M.word.length ? `It has ${M.word.length} letters. Try again.` : `Not ${guess}. Try again.`);
+}
+$('#mystForm').addEventListener('submit', e => { e.preventDefault(); Music.unlock(); mystTry($('#mystIn').value); $('#mystIn').value = ''; });
+$('#mystTiles').addEventListener('click', e => {
+  const b = e.target.closest('button[data-t]'); if (!b || b.disabled) return;
+  const M = PZ.mystery; mystPick.push(+b.dataset.t); b.disabled = true; if (P().sfx) Music.sfx('tap');
+  mystSlots(mystPick.map(i => M.mix[i]));
+  if (mystPick.length === M.word.length) {
+    const g = mystPick.map(i => M.mix[i]).join('');
+    if (g === M.word) return mystSolved(false);
+    mystTry(g);
+    setTimeout(() => { mystPick = []; document.querySelectorAll('#mystTiles button').forEach(t => (t.disabled = false)); mystSlots([]); }, 450);
+  }
+});
+$('#mystSlots').addEventListener('click', e => {
+  const b = e.target.closest('button[data-i]'); if (!b || $('#mystTiles').hidden) return;
+  const i = +b.dataset.i; if (i >= mystPick.length) return;
+  mystPick.splice(i).forEach(t => (document.querySelector(`#mystTiles button[data-t="${t}"]`).disabled = false));
+  mystSlots(mystPick.map(k => PZ.mystery.mix[k]));
+});
+$('#mystGive').onclick = () => { if (!PZ.mystery.solved) mystSolved(false, true); };
 
 // ---------- customiser ----------
 function applySkin() {

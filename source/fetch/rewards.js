@@ -32,6 +32,7 @@ const BADGES = [
   ['clean', 'No Sniffing', 'Finish a puzzle with no hints', s => s.n.clean >= 1],
   ['gold', 'Speedy Paws', 'Win a gold medal in timed mode', s => s.n.gold >= 1],
   ['three', 'Mind Reader', 'Solve a Word Guess in 3 tries or fewer', s => s.n.wg3 >= 1],
+  ['myst', 'Sharp Sniffer', 'Crack a mystery word before finding every word', s => s.n.myst >= 1],
   ['streak5', 'On a Roll', 'Get a Word Guess streak of 5', s => s.best >= 5],
   ['bonus10', 'Bonus Hunter', 'Catch 10 Buster Bonuses', s => s.n.bonus >= 10],
   ['packs', 'Explorer', 'Finish a puzzle in every word pack', s => s.packs.length >= 8],
@@ -41,7 +42,7 @@ const BADGES = [
 ];
 
 const STATS = {};
-function blankStats() { return { bones: 0, life: 0, owned: [], eq: { hat: '', face: '', neck: '', coat: '' }, badges: [], n: { ws: 0, wgw: 0, cw: 0, clean: 0, gold: 0, wg3: 0, bonus: 0 }, packs: [], best: 0 }; }
+function blankStats() { return { bones: 0, life: 0, owned: [], eq: { hat: '', face: '', neck: '', coat: '' }, badges: [], n: { ws: 0, wgw: 0, cw: 0, clean: 0, gold: 0, wg3: 0, bonus: 0, myst: 0 }, packs: [], best: 0 }; }
 function S() {
   if (!STATS[who]) {
     const d = blankStats(), v = store.get('stats.' + who, {}) || {};
@@ -126,6 +127,8 @@ function award(o) {
   if (o.streak != null) s.best = Math.max(s.best, o.streak);
   if (o.medal) { b += [0, 6, 3, 1][o.medal]; if (o.medal === 1) s.n.gold++; }
   if (o.clean) s.n.clean++;
+  if (o.myst) s.n.myst++;
+  b += o.extra || 0;
   if (o.kind !== 'wgl' && !s.packs.includes(P().topic)) s.packs.push(P().topic);
   give(b); checkBadges(); saveS(); updateBones();
   return `<p class="earn">${BONE}<b>+${b} bones</b></p>`;
