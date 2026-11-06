@@ -1,6 +1,6 @@
 /* Game Box menu: saved for offline use. Each game folder has its own saver too. */
-const CACHE='gamebox-v1';
-const CORE=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','brickton/cover.jpg'];
+const CACHE='gamebox-v2';
+const CORE=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','brickton/cover.jpg','fetch/cover.jpg'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('gamebox-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
